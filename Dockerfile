@@ -1,30 +1,38 @@
-# Alpine-based Apache + PHP + SQLite for Webtrees
 FROM php:8.0-apache
 
-# Install necessary packages
-RUN apk add --no-cache \
+# Install necessary packages using apt (Debian/Ubuntu)
+RUN apt-get update && apt-get install -y \
     apache2 \
-    sqlite \
-    php8-common php8-session php8-sqlite3 php8-dom php8-mbstring \
-    php8-openssl php8-json php8-gd php8-zlib php8-curl \
-    unzip wget bash
+    sqlite3 \
+    libsqlite3-dev \
+    libonig-dev \
+    libzip-dev \
+    libcurl4-openssl-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    unzip \
+    wget \
+    bash \
+    && docker-php-ext-install pdo_sqlite mbstring zip curl gd \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache mod_rewrite and basic config
-RUN sed -i '/^#LoadModule rewrite_module/s/^#//' /etc/apache2/httpd.conf && \
-    echo "ServerName localhost" >> /etc/apache2/httpd.conf && \
-    echo '<Directory "/var/www/localhost/htdocs">' >> /etc/apache2/httpd.conf && \
-    echo 'AllowOverride All' >> /etc/apache2/httpd.conf && \
-    echo '</Directory>' >> /etc/apache2/httpd.conf
+# Download and install webtrees
+RUN wget https://github.com/fisharebest/webtrees/releases/download/2.1.16/webtrees-2.1.16.zip \
+    && unzip webtrees-2.1.16.zip -d /var/www/html/ \
+    && rm webtrees-2.1.16.zip \
+    && mv /var/www/html/webtrees /var/www/html/webtrees-app \
+    && chown -R www-data:www-data /var/www/html/webtrees-app
 
-# Download latest Webtrees release
-WORKDIR /var/www/localhost/htdocs
-RUN wget -O webtrees.zip https://github.com/fisharebest/webtrees/releases/latest/download/webtrees.zip && \
-    unzip webtrees.zip && \
-    rm webtrees.zip && \
-    chown -R apache:apache /var/www/localhost/htdocs
+# Enable Apache rewrite module
+RUN a2enmod rewrite
 
-# Expose port
+# Configure Apache for webtrees
+COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
+
+# Expose port 80
 EXPOSE 80
 
 # Start Apache in foreground
-CMD ["/usr/sbin/httpd", "-D", "FOREGROUND"]
+CMD ["apache2-foreground"]
