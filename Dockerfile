@@ -13,9 +13,7 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     unzip \
     wget \
-    pkg-config \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-configure pdo_sqlite --with-sqlite3 \
     && docker-php-ext-install -j$(nproc) \
     exif \
     gd \
