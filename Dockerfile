@@ -27,4 +27,4 @@ RUN wget -O webtrees.zip https://github.com/fisharebest/webtrees/releases/latest
 EXPOSE 80
 
 # Start Apache in foreground
-CMD ["/usr/sbin/httpd", "-D", "
+CMD ["/usr/sbin/httpd", "-D", "FOREGROUND"]
