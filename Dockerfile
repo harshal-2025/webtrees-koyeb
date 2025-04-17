@@ -1,5 +1,5 @@
 # Alpine-based Apache + PHP + SQLite for Webtrees
-FROM php:8.1-apache-alpine
+FROM php:8.0-apache-alpine
 
 # Install necessary packages
 RUN apk add --no-cache \
