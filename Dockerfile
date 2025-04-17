@@ -9,10 +9,13 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libonig-dev \
     libxml2-dev \
+    libsqlite3-dev \
     sqlite3 \
     unzip \
     wget \
+    pkg-config \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure pdo_sqlite --with-sqlite3 \
     && docker-php-ext-install -j$(nproc) \
     exif \
     gd \
