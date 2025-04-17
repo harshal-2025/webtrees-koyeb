@@ -1,38 +1,54 @@
-FROM php:8.0-apache
+# Use official PHP 8.2 Apache image (LTS supported until 2025)
+FROM php:8.2-apache
 
-# Install necessary packages using apt (Debian/Ubuntu)
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
-    apache2 \
-    sqlite3 \
-    libsqlite3-dev \
-    libonig-dev \
-    libzip-dev \
-    libcurl4-openssl-dev \
-    libpng-dev \
+    libicu-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libzip-dev \
+    libonig-dev \
+    libxml2-dev \
+    sqlite3 \
     unzip \
     wget \
-    bash \
-    && docker-php-ext-install pdo_sqlite mbstring zip curl gd \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    exif \
+    gd \
+    intl \
+    mbstring \
+    opcache \
+    pdo_sqlite \
+    soap \
+    xml \
+    zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Configure PHP settings
+RUN echo "memory_limit = 256M" > /usr/local/etc/php/conf.d/memory-limit.ini && \
+    echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "post_max_size = 20M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini
+
+# Enable Apache modules
+RUN a2enmod rewrite headers
+
 # Download and install webtrees
-RUN wget https://github.com/fisharebest/webtrees/releases/download/2.1.16/webtrees-2.1.16.zip \
-    && unzip webtrees-2.1.16.zip -d /var/www/html/ \
-    && rm webtrees-2.1.16.zip \
-    && mv /var/www/html/webtrees /var/www/html/webtrees-app \
-    && chown -R www-data:www-data /var/www/html/webtrees-app
+RUN wget -q https://github.com/fisharebest/webtrees/releases/download/2.1.16/webtrees-2.1.16.zip -O /tmp/webtrees.zip && \
+    unzip -q /tmp/webtrees.zip -d /var/www/html/ && \
+    mv /var/www/html/webtrees /var/www/html/webtrees-app && \
+    rm /tmp/webtrees.zip && \
+    chown -R www-data:www-data /var/www/html/webtrees-app
 
-# Enable Apache rewrite module
-RUN a2enmod rewrite
-
-# Configure Apache for webtrees
+# Copy Apache config
 COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
 
-# Expose port 80
-EXPOSE 80
+# Health check (for Koyeb monitoring)
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD curl -f http://localhost/ || exit 1
 
-# Start Apache in foreground
+EXPOSE 80
 CMD ["apache2-foreground"]
