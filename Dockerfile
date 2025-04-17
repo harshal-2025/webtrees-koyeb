@@ -1,10 +1,10 @@
-# Use official PHP 8.2 Apache image (LTS supported until 2025)
-FROM php:8.2-apache
+# Use official PHP 8.3 Apache image (current stable)
+FROM php:8.3-apache
 
-# Install system dependencies and PHP extensions
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libicu-dev \
-    libjpeg-dev \
+    libjpeg62-turbo-dev \
     libfreetype6-dev \
     libzip-dev \
     libonig-dev \
@@ -13,7 +13,10 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     unzip \
     wget \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     exif \
     gd \
@@ -23,33 +26,27 @@ RUN apt-get update && apt-get install -y \
     pdo_sqlite \
     soap \
     xml \
-    zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    zip
 
-# Configure PHP settings
-RUN echo "memory_limit = 256M" > /usr/local/etc/php/conf.d/memory-limit.ini && \
-    echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+# PHP configuration
+RUN echo "memory_limit = 256M" > /usr/local/etc/php/conf.d/memory.ini && \
+    echo "upload_max_filesize = 20M" > /usr/local/etc/php/conf.d/uploads.ini && \
     echo "post_max_size = 20M" >> /usr/local/etc/php/conf.d/uploads.ini && \
-    echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini && \
-    echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini
+    echo "max_execution_time = 90" > /usr/local/etc/php/conf.d/timeouts.ini
 
-# Enable Apache modules
-RUN a2enmod rewrite headers
+# Apache configuration
+RUN a2enmod rewrite && \
+    echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# Download and install webtrees
+# Install webtrees
 RUN wget -q https://github.com/fisharebest/webtrees/releases/download/2.1.16/webtrees-2.1.16.zip -O /tmp/webtrees.zip && \
     unzip -q /tmp/webtrees.zip -d /var/www/html/ && \
     mv /var/www/html/webtrees /var/www/html/webtrees-app && \
     rm /tmp/webtrees.zip && \
     chown -R www-data:www-data /var/www/html/webtrees-app
 
-# Copy Apache config
+# Copy Apache virtual host config
 COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
-
-# Health check (for Koyeb monitoring)
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD curl -f http://localhost/ || exit 1
 
 EXPOSE 80
 CMD ["apache2-foreground"]
